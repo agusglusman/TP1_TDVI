@@ -1,0 +1,82 @@
+---
+title: "Tp1-TD6-Fuchs-Olivera-Glusman"
+author: "Carolina Olivera, Milena Fuchs, Agustina Glusman"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+```{r}
+install.packages("rpart") # Descomentar si no lo tienen ya instalado.
+library(rpart)
+```
+
+1.  Presentar una descripción concisa del conjunto de datos, incluyendo su origen, variables principales y el problema a resolver.
+
+Justificar la elección del conjunto de datos para el uso de árboles de decisión.
+
+2.  Primero cargamos el conjunto de datos loan_data a la variable "datos" y vemos su summary para tener una primera idea de cómo se destribuyen las variables, poder ver sus medias y la cantidad de datos que tienen.
+
+```{r setup, include=FALSE}
+datos <- loan_data
+summary(datos) 
+length(datos) #cantidad de columnas
+```
+
+Vamos a querer predecir la variable loan_status, que nos dice si le dan un préstamo o no al cliente. Antes de analizar las variables predictoras, veamos esta.
+
+```{r}
+summary(datos$loan_status)
+print("la media es:")
+mean(datos$loan_status)
+```
+
+Vamos a querer predecir esta variable teniendo en cuenta las demás, para esto veamos si al menos algunas variables tienen correlación con loan_status antes de empezar el procesamiento necesario para que se acomode a la consigna.
+
+Primero vemos si tiene correlación con credit_score. Esto lo vemos a partir de un boxpplot y graficando la linea de un modelo de regresión lineal simple entre estas variables (linea roja)
+
+##Ejercicio 3
+
+Dividimos el conjunto de datos al azar en tres particiones:
+entrenamiento (70%), validación (15%) y testeo (15%). Utilizamos una
+semilla para asegurar la replicabilidad.
+
+```{r}
+
+
+#Guardamos la cantidad de muestras en dtos_totales:
+datos_totales<- nrow(datos)
+
+#calulamos la cantidad de muestras para cada conjunto de datos (test, train y validation):
+tamano_entrenamiento <- 0.7 * datos_totales
+tamano_validacion <- 0.15 * datos_totales
+tamano_testeo <- datos_totales - tamano_entrenamiento - tamano_validacion
+
+indices <- sample(1:datos_totales)
+
+entrenamiento_indices <- indices[1:tamano_entrenamiento]  # 70% de los datos
+validacion_indices <- indices[(tamano_entrenamiento + 1):(tamano_entrenamiento + tamano_validacion)]  # 15% de los datos
+testeo_indices <- indices[(tamano_entrenamiento + tamano_validacion + 1):datos_totales]  # 15% restantes
+
+# Crear los tres conjuntos de datos
+train_data <- datos[entrenamiento_indices, ]
+valid_data <- datos[validacion_indices, ]
+test_data <- datos[testeo_indices, ]
+```
+
+```{r}
+tree <- rpart(formula = loan_status ~ person_age + person_gender + person_education + person_income + person_emp_exp + person_home_ownership + loan_amnt + loan_intent + loan_int_rate + loan_percent_income+ cb_person_cred_hist_length+ credit_score+ previous_loan_defaults_on_file, 
+              data = train_data, 
+              method = "class")
+rpart.control()
+
+```
+
+Visualizamos el árbol:
+
+```{r}
+library(rpart.plot)
+
+rpart.plot(tree)
+
+ 
+```
