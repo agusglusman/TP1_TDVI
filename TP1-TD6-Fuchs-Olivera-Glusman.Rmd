@@ -6,39 +6,109 @@ output: pdf_document
 ---
 
 ```{r}
-install.packages("rpart") # Descomentar si no lo tienen ya instalado.
+#install.packages("recipes") #Descomentar si no lo tienen ya instalado.
 library(rpart)
+library(ggplot2)
+library(dplyr)
+library(janitor)
+#library(caret)
 ```
 
-1.  Presentar una descripción concisa del conjunto de datos, incluyendo su origen, variables principales y el problema a resolver.
+### Ejercicio 1
 
-Justificar la elección del conjunto de datos para el uso de árboles de decisión.
+**1- Introducción al problema seleccionado**
 
-2.  Primero cargamos el conjunto de datos loan_data a la variable "datos" y vemos su summary para tener una primera idea de cómo se destribuyen las variables, poder ver sus medias y la cantidad de datos que tienen.
+**Problema a resolver**
+
+El conjunto de datos seleccionado es `loan_data.csv`, que contiene 45.000 registros y 14 variables relacionadas con solicitantes de préstamos. La información tiene características demográficas, financieras y crediticias de los individuos junto con detalles específicos de los préstamos. La variable objetivo es `loan_status`, que indica si un crédito fue aprobado (1) o rechazado (0), generando un problema de **clasificación binaria**, es decir, predecir si un préstamo se aprueba o se rechaza según el perfil de la persona y del crédito.
+
+Dentro de las variables principales se incluyen:
+
+-   **Demográficas:** `person_age`, `person_gender`, `person_education`, `person_emp_exp`, `person_home_ownership`.\
+-   **Financieras:** `person_income`, `credit_score`, `cb_person_cred_hist_length`, `previous_loan_defaults_on_file`.\
+-   **Del préstamo:** `loan_amnt`, `loan_int_rate`, `loan_percent_income`, `loan_intent`.
+
+En este trabajo utilizamos árboles de decisión como modelo principal, ya que resultan apropiados para problemas de clasificación y permiten reconocer de forma clara qué factores están más asociados a la aprobación o rechazo de un préstamo. Además, estos pueden trabajar con distintos tipos de variables, tanto numéricas como categóricas, lo que los hace una herramienta flexible y adecuada para este tipo de análisis.
+
+**Origen del dataset:** <https://www.kaggle.com/datasets/taweilo/loan-approval-classification-data>
+
+### Ejercicio 2
+
+**Preparación de los datos**
+
+En esta sección cargamos el dataset `loan_data.csv`, realizamos un preprocesamiento mínimo y un análisis exploratorio que incluye estadísticas descriptivas, visualizaciones y comentarios sobre las principales características observadas.
 
 ```{r setup, include=FALSE}
-datos <- loan_data
-summary(datos) 
-length(datos) #cantidad de columnas
+datos <- read.csv('loan_data.csv', stringsAsFactors = FALSE)
+
+
+# Preprocesamiento
+datos$loan_status <- factor(datos$loan_status,
+                           levels = c("0","1"),
+                           labels = c("Rechazado","Aprobado"))
+
+datos$person_gender <- as.factor(datos$person_gender)
+datos$person_education <- as.factor(datos$person_education)
+datos$person_home_ownership <- as.factor(datos$person_home_ownership)
+datos$loan_intent <- as.factor(datos$loan_intent)
+datos$previous_loan_defaults_on_file <- as.factor(datos$previous_loan_defaults_on_file)
+
+# Chequeo de faltantes
+colSums(is.na(datos))
+
 ```
 
-Vamos a querer predecir la variable loan_status, que nos dice si le dan un préstamo o no al cliente. Antes de analizar las variables predictoras, veamos esta.
+El chequeo de valores faltantes mostró que ninguna variable presenta datos ausentes, por lo que se puede trabajar directamente con el dataset completo sin aplicar técnicas de imputación.
+
+```{r setup, include=FALSE}
+
+# 2.3 Estadísticas descriptivas
+# Numéricas principales
+summary(datos[, c("person_age","person_income","loan_amnt","loan_int_rate","credit_score")])
+
+# Categóricas principales
+table(datos$loan_status)
+prop.table(table(datos$loan_status))
+table(datos$loan_intent)
+
+```
+
+A partir de lo anterior podemos observar que la edad promedio de los solicitantes es de 28 años, concentrada entre 24 y 30, aunque aparecen valores extremos poco realistas como 144. Los ingresos muestran gran dispersión ya que la media ronda los 80.000, pero con un rango que va de 8.000 a más de 7 millones. Los préstamos solicitados se concentran alrededor de 9.500, con tasas de interés que oscilan entre 5,4% y 20% (media cercana al 11%). El `credit_score` varía entre 390 y 850, con promedio en 633.
+
+La variable objetivo presenta un claro desbalance: 78% de préstamos rechazados frente a 22% aprobados. En cuanto a la intención del préstamo, destacan educación y gastos médicos como los motivos más frecuentes, mientras que mejoras en el hogar aparece como el menos común.
+
+### Visualizaciones exploratorias
+
+Para complementar el análisis, se generaron visualizaciones que permiten observar de manera más clara el comportamiento de las variables y su relación con el estado del préstamo.
 
 ```{r}
-summary(datos$loan_status)
-print("la media es:")
-mean(datos$loan_status)
+# Gráfico 1: Distribución de loan_status
+ggplot(datos, aes(x = loan_status)) +
+  geom_bar(fill = "steelblue") +
+  labs(title = "Distribución de estados del préstamo",
+       x = "Estado", y = "Cantidad") +
+  theme_minimal(base_size = 12)
+
 ```
 
-Vamos a querer predecir esta variable teniendo en cuenta las demás, para esto veamos si al menos algunas variables tienen correlación con loan_status antes de empezar el procesamiento necesario para que se acomode a la consigna.
+El gráfico de barras muestra que la mayoría de los préstamos fueron rechazados (78%), mientras que solo el 22% fueron aprobados. Esta diferencia refleja cómo, en la práctica, las entidades suelen ser más cautelosas al otorgar créditos. Para nuestro análisis, este desbalance implica que no alcanza con medir la exactitud de un modelo, ya que podría sesgarse hacia la clase mayoritaria; por eso será necesario considerar otras métricas que reflejen mejor la capacidad de identificar los casos aprobados como la precisión, el recall o el F1-score.
 
-Primero vemos si tiene correlación con credit_score. Esto lo vemos a partir de un boxpplot y graficando la linea de un modelo de regresión lineal simple entre estas variables (linea roja)
+```{r}
+# Gráfico 2: Ingresos por loan_status
+ggplot(datos, aes(x = loan_status, y = person_income)) +
+  geom_boxplot(fill = "lightgreen", outlier.alpha = 0.3) +
+  scale_y_continuous(labels = scales::label_number(big.mark = ".", decimal.mark = ",")) +
+  labs(title = "Ingresos por estado del préstamo",
+       x = "Estado del préstamo", y = "Ingreso anual") +
+  theme_minimal(base_size = 12)
 
-##Ejercicio 3
+```
 
-Dividimos el conjunto de datos al azar en tres particiones:
-entrenamiento (70%), validación (15%) y testeo (15%). Utilizamos una
-semilla para asegurar la replicabilidad.
+El boxplot permite comparar los ingresos de los solicitantes en función del estado del préstamo. Se observa que, en promedio, quienes obtuvieron aprobación tienden a tener ingresos algo más altos que los rechazados, aunque la diferencia no es tan marcada. Además, aparecen valores extremos muy elevados (outliers) que generan gran dispersión en ambos grupos.
+
+##Ejercicio 3 **Construcción de un árbol de decisión básico**
+
+Dividimos el conjunto de datos al azar en tres particiones: entrenamiento (70%), validación (15%) y testeo (15%). Utilizamos una semilla para asegurar la replicabilidad.
 
 ```{r}
 
@@ -71,6 +141,8 @@ rpart.control()
 
 ```
 
+El modelo de árbol se construyó con los valores por defecto de rpart. Estos hiperparámetros controlan el crecimiento del árbol. Por ejemplo, minsplit = 20 asegura que un nodo no se divida si tiene menos de 20 observaciones, mientras que cp = 0.01 evita que el modelo se vuelva excesivamente complejo al requerir que cada nueva división mejore al menos un 1% el ajuste. El valor de maxdepth = 30 es suficientemente grande como para no limitar el crecimiento en este caso.
+
 Visualizamos el árbol:
 
 ```{r}
@@ -79,4 +151,39 @@ library(rpart.plot)
 rpart.plot(tree)
 
  
+```
+
+### Interpretación del árbol de decisión
+
+El árbol se construyó con `rpart()`, especificando como variable respuesta `loan_status` (Aprobado/Rechazado) y como predictoras distintas características del solicitante y del préstamo (edad, ingresos, historial crediticio, monto, tasa, etc.).
+
+-   Los **colores** de los nodos indican la clase predicha (verde = *Aprobado*, azul = *Rechazado*).
+-   La **intensidad** del color refleja la **pureza** del nodo (qué tan homogéneo es).
+-   Dentro de cada nodo se ve la **proporción** de la clase mayoritaria y el **% de observaciones** que llegan a ese nodo.
+-   Las **reglas** aparecen en las ramas y marcan la condición que manda cada observación a la izquierda o a la derecha.
+
+**Lo que muestra nuestro árbol (primeros cortes):** - **Primer corte -- `previous_loan_defaults_on_file`:** es la variable más determinante. Si el solicitante tiene incumplimientos previos, el modelo lo clasifica directamente como **Rechazado**. - **Segundo corte -- `loan_percent_income` (\< 0.25):** entre quienes **no** tienen incumplimientos, la carga del préstamo sobre el ingreso es clave. Si la cuota representa **menos del 25%** del ingreso, la **probabilidad de aprobación** sube fuerte. - **Cortes posteriores -- `loan_int_rate`, `person_income`, `person_home_ownership`:** en general, **tasas más bajas**, **ingresos más altos** y **ser propietario** (u hipoteca) empujan hacia **Aprobado**.
+
+Así el árbol prioriza señales de **riesgo histórico** (defaults previos) y de **capacidad de pago** (porcentaje del ingreso, tasa e ingresos), lo que es consistente con la lógica crediticia.
+
+### Ejercicio 4
+
+**Metricas de performance**
+
+```{r}
+
+# Predicción de clases (Aprobado / Rechazado)
+pred_clases <- predict(tree, newdata = test_data, type = "class")
+head(pred_clases, 10)  # mostramos las primeras 10 predicciones
+
+# Predicción de probabilidades
+pred_probabilidades <- predict(tree, newdata = test_data, type = "prob")
+head(pred_probabilidades, 10)  # mostramos las primeras 10 filas de probabilidades
+
+```
+
+
+```{r}
+
+
 ```
