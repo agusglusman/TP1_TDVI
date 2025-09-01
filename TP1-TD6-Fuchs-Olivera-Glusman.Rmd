@@ -11,7 +11,7 @@ library(rpart)
 library(ggplot2)
 library(dplyr)
 library(janitor)
-#library(caret)
+library(caret)
 ```
 
 ### Ejercicio 1
@@ -121,6 +121,7 @@ tamano_entrenamiento <- 0.7 * datos_totales
 tamano_validacion <- 0.15 * datos_totales
 tamano_testeo <- datos_totales - tamano_entrenamiento - tamano_validacion
 
+set.seed(0309)
 indices <- sample(1:datos_totales)
 
 entrenamiento_indices <- indices[1:tamano_entrenamiento]  # 70% de los datos
@@ -134,6 +135,7 @@ test_data <- datos[testeo_indices, ]
 ```
 
 ```{r}
+
 tree <- rpart(formula = loan_status ~ person_age + person_gender + person_education + person_income + person_emp_exp + person_home_ownership + loan_amnt + loan_intent + loan_int_rate + loan_percent_income+ cb_person_cred_hist_length+ credit_score+ previous_loan_defaults_on_file, 
               data = train_data, 
               method = "class")
@@ -172,18 +174,98 @@ Así el árbol prioriza señales de **riesgo histórico** (defaults previos) y d
 
 ```{r}
 
-# Predicción de clases (Aprobado / Rechazado)
+# Predicción de clases
 pred_clases <- predict(tree, newdata = test_data, type = "class")
-head(pred_clases, 10)  # mostramos las primeras 10 predicciones
 
 # Predicción de probabilidades
 pred_probabilidades <- predict(tree, newdata = test_data, type = "prob")
-head(pred_probabilidades, 10)  # mostramos las primeras 10 filas de probabilidades
+
+resultados <- data.frame(
+  Clase_Predicha = pred_clases,
+  Probabilidades = pred_probabilidades
+)
+
+head(resultados, 10)
 
 ```
 
+Métricas de performance:
+
+Importamos las librerías necesarias
 
 ```{r}
-
-
+library(MLmetrics)
+library(pROC)
 ```
+
+Convertimos las predicciones y la variable objetivo en factores y guardamos la predicción del conjunto de testeo en una variable:
+
+```{r}
+test_data$loan_status <- as.factor(test_data$loan_status)
+pred <- predict(tree, newdata = test_data, type = "class")
+```
+
+Matriz de confusión:
+
+```{r}
+conf_matrix <- confusionMatrix(pred, test_data$loan_status)
+library(ggplot2)
+conf_matrix$table
+
+# Convertir a data.frame para graficar
+df_matrix <- as.data.frame(conf_matrix$table)
+
+# Gráfico
+ggplot(df_matrix, aes(x = Prediction, y = Reference, fill = Freq)) +
+  geom_tile() +
+  geom_text(aes(label = Freq), color = "white", size = 6) +
+  scale_fill_gradient(low = "blue", high = "red") +
+  labs(title = "Matriz de Confusión", x = "Predicción", y = "Real") +
+  theme_minimal()
+```
+El modelo es muy bueno detectando Rechazados (5019 vs 121) por lo que casi siempre que dice “Rechazado”, acierta. En cambio, es débil para detectar Aprobados (503 correctos vs 1107 errados).
+
+Esto significa que el árbol favorece la clase que tiene mas cantidad de datos que en este caso es Rechazado.
+
+Accuracy:
+
+```{r}
+accuracy <- Accuracy(pred, test_data$loan_status)
+accuracy
+```
+El modelo acierta en alrededor del 91% de los casos del conjunto de test.
+
+Como vimos en la matriz de confusión, el rendimiento para identificar la clase Aprobado es mas bajo. Por lo que concluimos en que el valor del accuracy está condicionado. La mayoría de las observaciones son Rechazado, y el modelo tiende a predecir esa clase. 
+
+Precision y Recall:
+
+```{r}
+precision_val <- Precision(test_data$loan_status,pred,positive = NULL)
+recall_val <-Recall(test_data$loan_status,pred,positive = NULL)
+
+precision_val
+recall_val
+```
+Precision es aproximadamente 0.91. Significa que de todos los casos que el modelo predijo como positivos, alrededor del 91% realmente lo eran.
+
+Recall es aproximadamente 0.97. Significa que de los que realmente son positivos, el modelo detecta el 97,6%. 
+
+El modelo tomó como positivos a los Rechazados. Es por esto que ambos valores son muy altos. 
+
+F1-score
+
+```{r}
+f_1_score<- F1_Score(test_data$loan_status,pred,positive = NULL)
+f_1_score
+```
+El F1-Score es la media armónica entre precision y recall. Esto indica que no solo predice la mayoría de los rechazados reales, sino que tambien mantiene bajo el número de falsos rechazados. 
+
+AUC-ROC
+
+```{r}
+probabilities <- predict(tree, newdata = test_data, type = "prob")
+
+auc_value <- MLmetrics::AUC(y_pred = probabilities[, "Aprobado"], y_true = as.numeric(test_data$loan_status == "Aprobado"))
+print(paste("AUC:", auc_value))
+```
+Significa que el modelo diferencia bien entre “Aprobado” y “Rechazado”. Por lo que el rendimiento es bueno.
