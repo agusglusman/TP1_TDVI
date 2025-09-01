@@ -269,3 +269,78 @@ auc_value <- MLmetrics::AUC(y_pred = probabilities[, "Aprobado"], y_true = as.nu
 print(paste("AUC:", auc_value))
 ```
 Significa que el modelo diferencia bien entre “Aprobado” y “Rechazado”. Por lo que el rendimiento es bueno.
+
+```{r}
+mejor_arbol <- function(a,b,c,x,y,z, train_data, valid_data){
+  # Inicializar variables
+  mejor_arbol_valor <- 0  
+  mejor_arbol_MD <- 0
+  mejor_arbol_MB <- 0
+  mejor_arbol_MS <- 0
+  
+  # max_depth
+  for (i in x:a) {
+    # minbucket
+    for (j in y:b) {
+      # minsplit
+      for (k in z:c) {
+        tree_mobible1 <- rpart(
+          formula = loan_status ~ person_age + person_gender + person_education + person_income + person_emp_exp + 
+                                  person_home_ownership + loan_amnt + loan_intent + loan_int_rate + loan_percent_income +
+                                  cb_person_cred_hist_length + credit_score + previous_loan_defaults_on_file, 
+          data = train_data, 
+          method = "class", minsplit = k, minbucket = j, maxdepth = i, cp = 0, xval = 0
+        )
+        
+        # Calcular AUC validación
+        probabilities <- predict(tree_mobible1, newdata = valid_data, type = "prob")
+        AUC_value_valid <- MLmetrics::AUC(
+          y_pred = probabilities[, "Rechazado"], 
+          y_true = as.numeric(valid_data$loan_status == "Rechazado")
+        )
+        
+        # Guardar mejor AUC
+        if (AUC_value_valid > mejor_arbol_valor) {
+          mejor_arbol_valor <- AUC_value_valid
+          mejor_arbol_MD <- i
+          mejor_arbol_MB <- j
+          mejor_arbol_MS <- k
+        }
+      }
+    }
+  }
+  
+  # Crear dataframe con resultados (solo validación)
+  result <- data.frame(
+    aucroc   = mejor_arbol_valor,
+    maxdepth = mejor_arbol_MD,
+    minbucket= mejor_arbol_MB,
+    minsplit = mejor_arbol_MS
+  )
+  
+  return(result)
+}
+
+
+prueba1 <- mejor_arbol(a=15, b=30, c=20,    x=10, y=20,   z=1,    train_data=train_data, valid_data=valid_data)
+prueba2 <- mejor_arbol(a=20, b=30, c=20,    x=15, y=20,   z=1,    train_data=train_data, valid_data=valid_data)
+prueba3 <- mejor_arbol(a=10, b=1020, c=1020,x=1,  y=1000, z=1000, train_data=train_data, valid_data=valid_data)
+prueba5 <- mejor_arbol(a=1,  b=1,   c=1,    x=1,  y=1,    z=1,    train_data=train_data, valid_data=valid_data)
+prueba6 <- mejor_arbol(a=30, b=500, c=4000, x=25, y=490,  z=3990, train_data=train_data, valid_data=valid_data)
+prueba7 <- mejor_arbol(a=25, b=5000,c=400,  x=20, y=4990, z=390,  train_data=train_data, valid_data=valid_data)
+
+tabla_resultados <- bind_rows(
+  list(
+    prueba1 = prueba1,
+    prueba2 = prueba2,
+    prueba3 = prueba3,
+    prueba5 = prueba5,
+    prueba6 = prueba6,
+    prueba7 = prueba7
+  ), 
+  .id = "prueba"
+)
+
+kable(tabla_resultados, align = "c", caption = "Comparación de todas las pruebas (Validación)") %>%
+  kable_styling(full_width = FALSE, bootstrap_options = c("striped", "hover", "condensed"))
+```
