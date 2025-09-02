@@ -270,85 +270,10 @@ print(paste("AUC:", auc_value))
 ```
 Significa que el modelo diferencia bien entre “Aprobado” y “Rechazado”. Por lo que el rendimiento es bueno.
 
+
 ```{r}
 
-library(kableExtra)
-
-mejor_arbol <- function(a,b,c,x,y,z, train_data, valid_data){
-  # Inicializar variables
-  mejor_arbol_valor <- 0  
-  mejor_arbol_MD <- 0
-  mejor_arbol_MB <- 0
-  mejor_arbol_MS <- 0
-  
-  # max_depth
-  for (i in x:a) {
-    # minbucket
-    for (j in y:b) {
-      # minsplit
-      for (k in z:c) {
-        tree_mobible1 <- rpart(
-          formula = loan_status ~ person_age + person_gender + person_education + person_income + person_emp_exp + 
-                                  person_home_ownership + loan_amnt + loan_intent + loan_int_rate + loan_percent_income +
-                                  cb_person_cred_hist_length + credit_score + previous_loan_defaults_on_file, 
-          data = train_data, 
-          method = "class", minsplit = k, minbucket = j, maxdepth = i, cp = 0, xval = 0
-        )
-        
-        # Calcular AUC validación
-        probabilities <- predict(tree_mobible1, newdata = valid_data, type = "prob")
-        AUC_value_valid <- MLmetrics::AUC(
-          y_pred = probabilities[, "Rechazado"], 
-          y_true = as.numeric(valid_data$loan_status == "Rechazado")
-        )
-        
-        # Guardar mejor AUC
-        if (AUC_value_valid > mejor_arbol_valor) {
-          mejor_arbol_valor <- AUC_value_valid
-          mejor_arbol_MD <- i
-          mejor_arbol_MB <- j
-          mejor_arbol_MS <- k
-        }
-      }
-    }
-  }
-  
-  # Crear dataframe con resultados (solo validación)
-  result <- data.frame(
-    aucroc   = mejor_arbol_valor,
-    maxdepth = mejor_arbol_MD,
-    minbucket= mejor_arbol_MB,
-    minsplit = mejor_arbol_MS
-  )
-  
-  return(result)
-}
-
-
-prueba1 <- mejor_arbol(a=5, b=30, c=20,    x=10, y=20,   z=1,    train_data=train_data, valid_data=valid_data)
-prueba2 <- mejor_arbol(a=15, b=30, c=100, x=10, y=20, z=10, train_data=train_data, valid_data=valid_data)
-prueba3 <- mejor_arbol(a=10, b=1020, c=1020,x=1,  y=1000, z=1000, train_data=train_data, valid_data=valid_data)
-prueba4 <- mejor_arbol(a=12, b=30, c=50, x=10, y=20, z=5,   train_data=train_data, valid_data=valid_data)
-prueba5 <- mejor_arbol(a=1,  b=1, c=1, x=1, y=1,  z=1,  train_data=train_data, valid_data=valid_data)
-
-
-tabla_resultados <- bind_rows(
-  list(
-    prueba1 = prueba1,
-    prueba2 = prueba2,
-    prueba3 = prueba3,
-    prueba4 = prueba4,
-    prueba5 = prueba5
-  ), 
-  .id = "prueba"
-)
-
-kable(tabla_resultados, align = "c", caption = "Comparación de todas las pruebas (Validación)") %>%
-  kable_styling(full_width = FALSE, bootstrap_options = c("striped", "hover", "condensed"))
-```
-```{r}
-
-random_search <- function(train_data, valid_data, n = 100, seed = 777) {
+random_search <- function(train_data, valid_data, n) {
   # asegurar niveles (negativo, positivo)
   lvl <- c("Aprobado", "Rechazado")
   train_data$loan_status <- factor(train_data$loan_status, levels = lvl)
@@ -363,12 +288,12 @@ random_search <- function(train_data, valid_data, n = 100, seed = 777) {
     stringsAsFactors = FALSE
   )
   
-  set.seed(seed) # replicabilidad
+  set.seed(777) # replicabilidad
   
   for (i in 1:n) {
     # hiperparámetros aleatorios
-    maxdepth  <- sample(10:15, 1)
-    minsplit  <- sample(5:50, 1)
+    maxdepth  <- sample(2:30, 1)
+    minsplit  <- sample(10:500, 1)
     minbucket <- max(1L, round(minsplit / 3)) 
     
     
@@ -406,7 +331,7 @@ random_search <- function(train_data, valid_data, n = 100, seed = 777) {
 
 ```{r}
 library(rpart); library(pROC)
-rs <- random_search(train_data, valid_data, n = 150)  
+rs <- random_search(train_data, valid_data, n = 1000)  
 rs$best_model    # hiperparámetros y AUC de validación del mejor
 ```
 
@@ -431,3 +356,77 @@ ggplot(plot_data, aes(x = Valor, y = AUC_Validation)) +
        y = "AUC-ROC") +
   theme_minimal(base_size = 13)
 ```
+
+
+```{r}
+best_tree <- rpart(
+  loan_status ~ ., 
+  data = rbind(train_data,valid_data), 
+  method = "class",
+  control = rpart.control(
+    minsplit  = rs$best_model$minsplit,
+    minbucket = rs$best_model$minbucket,
+    maxdepth  = rs$best_model$maxdepth,
+    cp = 0,
+    xval = 0
+  )
+)
+
+prob_best <- predict(best_tree, newdata = test_data, type = "prob")[, "Rechazado"]
+
+```
+
+```{r}
+
+lvl <- c("Aprobado", "Rechazado")
+train_data$loan_status <- factor(train_data$loan_status, levels = lvl)
+valid_data$loan_status <- factor(valid_data$loan_status, levels = lvl)
+test_data$loan_status   <- factor(test_data$loan_status, levels = lvl)
+
+# entrenar con los hiperparámetros encontrados
+best_tree <- rpart(
+  loan_status ~ ., 
+  data = rbind(train_data,valid_data), 
+  method = "class",
+  control = rpart.control(
+    minsplit  = rs$best_model$minsplit,
+    minbucket = rs$best_model$minbucket,
+    maxdepth  = rs$best_model$maxdepth,
+    cp = 0,
+    xval = 0
+  )
+)
+
+# predecir probabilidades en test
+probas_test <- predict(best_tree, newdata = test_data, type = "prob")[, "Rechazado"]
+
+# calcular curva ROC y AUC
+roc_test <- roc(response = test_data$loan_status,
+                predictor = probas_test,
+                levels = lvl,
+                quiet = TRUE)
+
+auc_test <- auc(roc_test)
+auc_test
+
+```
+
+
+AGREGAR COMPARACION ENTRE ARBOL DEL EJ3
+
+##ejercicio 5
+rpart.plot(tree)
+
+```{r}
+rpart.plot(best_tree)
+```
+
+
+
+```{r}
+best_tree$control$minsplit
+best_tree$control$minbucket
+best_tree$control$maxdepth
+```
+
+
