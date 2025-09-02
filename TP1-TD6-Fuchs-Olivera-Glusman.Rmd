@@ -271,6 +271,9 @@ print(paste("AUC:", auc_value))
 Significa que el modelo diferencia bien entre “Aprobado” y “Rechazado”. Por lo que el rendimiento es bueno.
 
 ```{r}
+
+library(kableExtra)
+
 mejor_arbol <- function(a,b,c,x,y,z, train_data, valid_data){
   # Inicializar variables
   mejor_arbol_valor <- 0  
@@ -322,25 +325,109 @@ mejor_arbol <- function(a,b,c,x,y,z, train_data, valid_data){
 }
 
 
-prueba1 <- mejor_arbol(a=15, b=30, c=20,    x=10, y=20,   z=1,    train_data=train_data, valid_data=valid_data)
-prueba2 <- mejor_arbol(a=20, b=30, c=20,    x=15, y=20,   z=1,    train_data=train_data, valid_data=valid_data)
+prueba1 <- mejor_arbol(a=5, b=30, c=20,    x=10, y=20,   z=1,    train_data=train_data, valid_data=valid_data)
+prueba2 <- mejor_arbol(a=15, b=30, c=100, x=10, y=20, z=10, train_data=train_data, valid_data=valid_data)
 prueba3 <- mejor_arbol(a=10, b=1020, c=1020,x=1,  y=1000, z=1000, train_data=train_data, valid_data=valid_data)
-prueba5 <- mejor_arbol(a=1,  b=1,   c=1,    x=1,  y=1,    z=1,    train_data=train_data, valid_data=valid_data)
-prueba6 <- mejor_arbol(a=30, b=500, c=4000, x=25, y=490,  z=3990, train_data=train_data, valid_data=valid_data)
-prueba7 <- mejor_arbol(a=25, b=5000,c=400,  x=20, y=4990, z=390,  train_data=train_data, valid_data=valid_data)
+prueba4 <- mejor_arbol(a=12, b=30, c=50, x=10, y=20, z=5,   train_data=train_data, valid_data=valid_data)
+prueba5 <- mejor_arbol(a=1,  b=1, c=1, x=1, y=1,  z=1,  train_data=train_data, valid_data=valid_data)
+
 
 tabla_resultados <- bind_rows(
   list(
     prueba1 = prueba1,
     prueba2 = prueba2,
     prueba3 = prueba3,
-    prueba5 = prueba5,
-    prueba6 = prueba6,
-    prueba7 = prueba7
+    prueba4 = prueba4,
+    prueba5 = prueba5
   ), 
   .id = "prueba"
 )
 
 kable(tabla_resultados, align = "c", caption = "Comparación de todas las pruebas (Validación)") %>%
   kable_styling(full_width = FALSE, bootstrap_options = c("striped", "hover", "condensed"))
+```
+```{r}
+
+random_search <- function(train_data, valid_data, n = 100, seed = 777) {
+  # asegurar niveles (negativo, positivo)
+  lvl <- c("Aprobado", "Rechazado")
+  train_data$loan_status <- factor(train_data$loan_status, levels = lvl)
+  valid_data$loan_status   <- factor(valid_data$loan_status, levels = lvl)
+  
+  # resultados
+  results <- data.frame(
+    maxdepth = integer(),
+    minsplit = integer(),
+    minbucket = integer(),
+    AUC_Validation = numeric(),
+    stringsAsFactors = FALSE
+  )
+  
+  set.seed(seed) # replicabilidad
+  
+  for (i in 1:n) {
+    # hiperparámetros aleatorios
+    maxdepth  <- sample(10:15, 1)
+    minsplit  <- sample(5:50, 1)
+    minbucket <- max(1L, round(minsplit / 3)) 
+    
+    
+    # entrenar con cp=0 y xval=0 
+    tree_model <- suppressMessages(suppressWarnings(
+      rpart(loan_status ~ .,
+            data = train_data,
+            method = "class",
+            control = rpart.control(minsplit = minsplit,
+                                    minbucket = minbucket,
+                                    cp = 0, xval = 0,
+                                    maxdepth = maxdepth))
+    ))
+    
+    # probas en validación (tomamos la columna "Aprobado" por NOMBRE)
+    probability_pred <- predict(tree_model, newdata = valid_data, type = "prob")
+    prob_pos <- probability_pred[, "Rechazado"]
+    
+    # AUC en validación (con levels explícitos)
+    roc_curve <- roc(response = valid_data$loan_status, predictor = prob_pos,
+                     levels = lvl, quiet = TRUE)
+    auc_value <- as.numeric(auc(roc_curve))
+    
+    # guardar
+    results <- rbind(results, data.frame(maxdepth, minsplit, minbucket,
+                                         AUC_Validation = auc_value))
+  }
+  
+  # mejor por AUC
+  best_model <- results[which.max(results$AUC_Validation), , drop = FALSE]
+  return(list(best_model = best_model, results = results))
+}
+
+```
+
+```{r}
+library(rpart); library(pROC)
+rs <- random_search(train_data, valid_data, n = 150)  
+rs$best_model    # hiperparámetros y AUC de validación del mejor
+```
+
+### Visualización de la relación entre hiperparámetros y AUC-ROC  
+
+Para evaluar cómo influyen los hiperparámetros en la calidad del modelo, generamos gráficos que muestran la relación de *maxdepth, **minsplit* y *minbucket* con el *AUC-ROC obtenido en validación*.  
+Estos permiten identificar patrones o tendencias que orientan la selección de configuraciones más adecuadas.
+
+```{r}
+library(tidyr)
+
+plot_data <- rs$results %>%
+  pivot_longer(cols = c("maxdepth", "minsplit", "minbucket"),
+               names_to = "Hiperparámetro", values_to = "Valor")
+
+ggplot(plot_data, aes(x = Valor, y = AUC_Validation)) +
+  geom_point(alpha = 0.5, color = "steelblue") +
+  geom_smooth(method = "loess", se = FALSE, color = "darkred", size = 1) +
+  facet_wrap(~ Hiperparámetro, scales = "free_x") +
+  labs(title = "Impacto de los hiperparámetros en el AUC-ROC (validación)",
+       x = "Valor del hiperparámetro",
+       y = "AUC-ROC") +
+  theme_minimal(base_size = 13)
 ```
