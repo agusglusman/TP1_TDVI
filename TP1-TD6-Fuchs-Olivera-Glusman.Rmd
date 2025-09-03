@@ -3,6 +3,9 @@ title: "Tp1-TD6-Fuchs-Olivera-Glusman"
 author: "Carolina Olivera, Milena Fuchs, Agustina Glusman"
 date: "`r Sys.Date()`"
 output: pdf_document
+editor_options: 
+  markdown: 
+    wrap: 72
 ---
 
 ```{r}
@@ -20,23 +23,42 @@ library(caret)
 
 **Problema a resolver**
 
-El conjunto de datos seleccionado es `loan_data.csv`, que contiene 45.000 registros y 14 variables relacionadas con solicitantes de préstamos. La información tiene características demográficas, financieras y crediticias de los individuos junto con detalles específicos de los préstamos. La variable objetivo es `loan_status`, que indica si un crédito fue aprobado (1) o rechazado (0), generando un problema de **clasificación binaria**, es decir, predecir si un préstamo se aprueba o se rechaza según el perfil de la persona y del crédito.
+El conjunto de datos seleccionado es `loan_data.csv`, que contiene
+45.000 registros y 14 variables relacionadas con solicitantes de
+préstamos. La información tiene características demográficas,
+financieras y crediticias de los individuos junto con detalles
+específicos de los préstamos. La variable objetivo es `loan_status`, que
+indica si un crédito fue aprobado (1) o rechazado (0), generando un
+problema de **clasificación binaria**, es decir, predecir si un préstamo
+se aprueba o se rechaza según el perfil de la persona y del crédito.
 
 Dentro de las variables principales se incluyen:
 
--   **Demográficas:** `person_age`, `person_gender`, `person_education`, `person_emp_exp`, `person_home_ownership`.\
--   **Financieras:** `person_income`, `credit_score`, `cb_person_cred_hist_length`, `previous_loan_defaults_on_file`.\
--   **Del préstamo:** `loan_amnt`, `loan_int_rate`, `loan_percent_income`, `loan_intent`.
+-   **Demográficas:** `person_age`, `person_gender`, `person_education`,
+    `person_emp_exp`, `person_home_ownership`.\
+-   **Financieras:** `person_income`, `credit_score`,
+    `cb_person_cred_hist_length`, `previous_loan_defaults_on_file`.\
+-   **Del préstamo:** `loan_amnt`, `loan_int_rate`,
+    `loan_percent_income`, `loan_intent`.
 
-En este trabajo utilizamos árboles de decisión como modelo principal, ya que resultan apropiados para problemas de clasificación y permiten reconocer de forma clara qué factores están más asociados a la aprobación o rechazo de un préstamo. Además, estos pueden trabajar con distintos tipos de variables, tanto numéricas como categóricas, lo que los hace una herramienta flexible y adecuada para este tipo de análisis.
+En este trabajo utilizamos árboles de decisión como modelo principal, ya
+que resultan apropiados para problemas de clasificación y permiten
+reconocer de forma clara qué factores están más asociados a la
+aprobación o rechazo de un préstamo. Además, estos pueden trabajar con
+distintos tipos de variables, tanto numéricas como categóricas, lo que
+los hace una herramienta flexible y adecuada para este tipo de análisis.
 
-**Origen del dataset:** <https://www.kaggle.com/datasets/taweilo/loan-approval-classification-data>
+**Origen del dataset:**
+<https://www.kaggle.com/datasets/taweilo/loan-approval-classification-data>
 
 ### Ejercicio 2
 
 **Preparación de los datos**
 
-En esta sección cargamos el dataset `loan_data.csv`, realizamos un preprocesamiento mínimo y un análisis exploratorio que incluye estadísticas descriptivas, visualizaciones y comentarios sobre las principales características observadas.
+En esta sección cargamos el dataset `loan_data.csv`, realizamos un
+preprocesamiento mínimo y un análisis exploratorio que incluye
+estadísticas descriptivas, visualizaciones y comentarios sobre las
+principales características observadas.
 
 ```{r setup, include=FALSE}
 datos <- read.csv('loan_data.csv', stringsAsFactors = FALSE)
@@ -58,7 +80,9 @@ colSums(is.na(datos))
 
 ```
 
-El chequeo de valores faltantes mostró que ninguna variable presenta datos ausentes, por lo que se puede trabajar directamente con el dataset completo sin aplicar técnicas de imputación.
+El chequeo de valores faltantes mostró que ninguna variable presenta
+datos ausentes, por lo que se puede trabajar directamente con el dataset
+completo sin aplicar técnicas de imputación.
 
 ```{r setup, include=FALSE}
 
@@ -73,13 +97,26 @@ table(datos$loan_intent)
 
 ```
 
-A partir de lo anterior podemos observar que la edad promedio de los solicitantes es de 28 años, concentrada entre 24 y 30, aunque aparecen valores extremos poco realistas como 144. Los ingresos muestran gran dispersión ya que la media ronda los 80.000, pero con un rango que va de 8.000 a más de 7 millones. Los préstamos solicitados se concentran alrededor de 9.500, con tasas de interés que oscilan entre 5,4% y 20% (media cercana al 11%). El `credit_score` varía entre 390 y 850, con promedio en 633.
+A partir de lo anterior podemos observar que la edad promedio de los
+solicitantes es de 28 años, concentrada entre 24 y 30, aunque aparecen
+valores extremos poco realistas como 144. Los ingresos muestran gran
+dispersión ya que la media ronda los 80.000, pero con un rango que va de
+8.000 a más de 7 millones. Los préstamos solicitados se concentran
+alrededor de 9.500, con tasas de interés que oscilan entre 5,4% y 20%
+(media cercana al 11%). El `credit_score` varía entre 390 y 850, con
+promedio en 633.
 
-La variable objetivo presenta un claro desbalance: 78% de préstamos rechazados frente a 22% aprobados. En cuanto a la intención del préstamo, destacan educación y gastos médicos como los motivos más frecuentes, mientras que mejoras en el hogar aparece como el menos común.
+La variable objetivo presenta un claro desbalance: 78% de préstamos
+rechazados frente a 22% aprobados. En cuanto a la intención del
+préstamo, destacan educación y gastos médicos como los motivos más
+frecuentes, mientras que mejoras en el hogar aparece como el menos
+común.
 
 ### Visualizaciones exploratorias
 
-Para complementar el análisis, se generaron visualizaciones que permiten observar de manera más clara el comportamiento de las variables y su relación con el estado del préstamo.
+Para complementar el análisis, se generaron visualizaciones que permiten
+observar de manera más clara el comportamiento de las variables y su
+relación con el estado del préstamo.
 
 ```{r}
 # Gráfico 1: Distribución de loan_status
@@ -91,7 +128,14 @@ ggplot(datos, aes(x = loan_status)) +
 
 ```
 
-El gráfico de barras muestra que la mayoría de los préstamos fueron rechazados (78%), mientras que solo el 22% fueron aprobados. Esta diferencia refleja cómo, en la práctica, las entidades suelen ser más cautelosas al otorgar créditos. Para nuestro análisis, este desbalance implica que no alcanza con medir la exactitud de un modelo, ya que podría sesgarse hacia la clase mayoritaria; por eso será necesario considerar otras métricas que reflejen mejor la capacidad de identificar los casos aprobados como la precisión, el recall o el F1-score.
+El gráfico de barras muestra que la mayoría de los préstamos fueron
+rechazados (78%), mientras que solo el 22% fueron aprobados. Esta
+diferencia refleja cómo, en la práctica, las entidades suelen ser más
+cautelosas al otorgar créditos. Para nuestro análisis, este desbalance
+implica que no alcanza con medir la exactitud de un modelo, ya que
+podría sesgarse hacia la clase mayoritaria; por eso será necesario
+considerar otras métricas que reflejen mejor la capacidad de identificar
+los casos aprobados como la precisión, el recall o el F1-score.
 
 ```{r}
 # Gráfico 2: Ingresos por loan_status
@@ -104,11 +148,18 @@ ggplot(datos, aes(x = loan_status, y = person_income)) +
 
 ```
 
-El boxplot permite comparar los ingresos de los solicitantes en función del estado del préstamo. Se observa que, en promedio, quienes obtuvieron aprobación tienden a tener ingresos algo más altos que los rechazados, aunque la diferencia no es tan marcada. Además, aparecen valores extremos muy elevados (outliers) que generan gran dispersión en ambos grupos.
+El boxplot permite comparar los ingresos de los solicitantes en función
+del estado del préstamo. Se observa que, en promedio, quienes obtuvieron
+aprobación tienden a tener ingresos algo más altos que los rechazados,
+aunque la diferencia no es tan marcada. Además, aparecen valores
+extremos muy elevados (outliers) que generan gran dispersión en ambos
+grupos.
 
 ##Ejercicio 3 **Construcción de un árbol de decisión básico**
 
-Dividimos el conjunto de datos al azar en tres particiones: entrenamiento (70%), validación (15%) y testeo (15%). Utilizamos una semilla para asegurar la replicabilidad.
+Dividimos el conjunto de datos al azar en tres particiones:
+entrenamiento (70%), validación (15%) y testeo (15%). Utilizamos una
+semilla para asegurar la replicabilidad.
 
 ```{r}
 
@@ -121,7 +172,7 @@ tamano_entrenamiento <- 0.7 * datos_totales
 tamano_validacion <- 0.15 * datos_totales
 tamano_testeo <- datos_totales - tamano_entrenamiento - tamano_validacion
 
-set.seed(0309)
+set.seed(1234)
 indices <- sample(1:datos_totales)
 
 entrenamiento_indices <- indices[1:tamano_entrenamiento]  # 70% de los datos
@@ -143,7 +194,13 @@ rpart.control()
 
 ```
 
-El modelo de árbol se construyó con los valores por defecto de rpart. Estos hiperparámetros controlan el crecimiento del árbol. Por ejemplo, minsplit = 20 asegura que un nodo no se divida si tiene menos de 20 observaciones, mientras que cp = 0.01 evita que el modelo se vuelva excesivamente complejo al requerir que cada nueva división mejore al menos un 1% el ajuste. El valor de maxdepth = 30 es suficientemente grande como para no limitar el crecimiento en este caso.
+El modelo de árbol se construyó con los valores por defecto de rpart.
+Estos hiperparámetros controlan el crecimiento del árbol. Por ejemplo,
+minsplit = 20 asegura que un nodo no se divida si tiene menos de 20
+observaciones, mientras que cp = 0.01 evita que el modelo se vuelva
+excesivamente complejo al requerir que cada nueva división mejore al
+menos un 1% el ajuste. El valor de maxdepth = 30 es suficientemente
+grande como para no limitar el crecimiento en este caso.
 
 Visualizamos el árbol:
 
@@ -157,16 +214,35 @@ rpart.plot(tree)
 
 ### Interpretación del árbol de decisión
 
-El árbol se construyó con `rpart()`, especificando como variable respuesta `loan_status` (Aprobado/Rechazado) y como predictoras distintas características del solicitante y del préstamo (edad, ingresos, historial crediticio, monto, tasa, etc.).
+El árbol se construyó con `rpart()`, especificando como variable
+respuesta `loan_status` (Aprobado/Rechazado) y como predictoras
+distintas características del solicitante y del préstamo (edad,
+ingresos, historial crediticio, monto, tasa, etc.).
 
--   Los **colores** de los nodos indican la clase predicha (verde = *Aprobado*, azul = *Rechazado*).
--   La **intensidad** del color refleja la **pureza** del nodo (qué tan homogéneo es).
--   Dentro de cada nodo se ve la **proporción** de la clase mayoritaria y el **% de observaciones** que llegan a ese nodo.
--   Las **reglas** aparecen en las ramas y marcan la condición que manda cada observación a la izquierda o a la derecha.
+-   Los **colores** de los nodos indican la clase predicha (verde =
+    *Aprobado*, azul = *Rechazado*).
+-   La **intensidad** del color refleja la **pureza** del nodo (qué tan
+    homogéneo es).
+-   Dentro de cada nodo se ve la **proporción** de la clase mayoritaria
+    y el **% de observaciones** que llegan a ese nodo.
+-   Las **reglas** aparecen en las ramas y marcan la condición que manda
+    cada observación a la izquierda o a la derecha.
 
-**Lo que muestra nuestro árbol (primeros cortes):** - **Primer corte -- `previous_loan_defaults_on_file`:** es la variable más determinante. Si el solicitante tiene incumplimientos previos, el modelo lo clasifica directamente como **Rechazado**. - **Segundo corte -- `loan_percent_income` (\< 0.25):** entre quienes **no** tienen incumplimientos, la carga del préstamo sobre el ingreso es clave. Si la cuota representa **menos del 25%** del ingreso, la **probabilidad de aprobación** sube fuerte. - **Cortes posteriores -- `loan_int_rate`, `person_income`, `person_home_ownership`:** en general, **tasas más bajas**, **ingresos más altos** y **ser propietario** (u hipoteca) empujan hacia **Aprobado**.
+**Lo que muestra nuestro árbol (primeros cortes):** - **Primer corte --
+`previous_loan_defaults_on_file`:** es la variable más determinante. Si
+el solicitante tiene incumplimientos previos, el modelo lo clasifica
+directamente como **Rechazado**. - **Segundo corte --
+`loan_percent_income` (\< 0.25):** entre quienes **no** tienen
+incumplimientos, la carga del préstamo sobre el ingreso es clave. Si la
+cuota representa **menos del 25%** del ingreso, la **probabilidad de
+aprobación** sube fuerte. - **Cortes posteriores -- `loan_int_rate`,
+`person_income`, `person_home_ownership`:** en general, **tasas más
+bajas**, **ingresos más altos** y **ser propietario** (u hipoteca)
+empujan hacia **Aprobado**.
 
-Así el árbol prioriza señales de **riesgo histórico** (defaults previos) y de **capacidad de pago** (porcentaje del ingreso, tasa e ingresos), lo que es consistente con la lógica crediticia.
+Así el árbol prioriza señales de **riesgo histórico** (defaults previos)
+y de **capacidad de pago** (porcentaje del ingreso, tasa e ingresos), lo
+que es consistente con la lógica crediticia.
 
 ### Ejercicio 4
 
@@ -198,7 +274,8 @@ library(MLmetrics)
 library(pROC)
 ```
 
-Convertimos las predicciones y la variable objetivo en factores y guardamos la predicción del conjunto de testeo en una variable:
+Convertimos las predicciones y la variable objetivo en factores y
+guardamos la predicción del conjunto de testeo en una variable:
 
 ```{r}
 test_data$loan_status <- as.factor(test_data$loan_status)
@@ -223,9 +300,13 @@ ggplot(df_matrix, aes(x = Prediction, y = Reference, fill = Freq)) +
   labs(title = "Matriz de Confusión", x = "Predicción", y = "Real") +
   theme_minimal()
 ```
-El modelo es muy bueno detectando Rechazados (5019 vs 121) por lo que casi siempre que dice “Rechazado”, acierta. En cambio, es débil para detectar Aprobados (503 correctos vs 1107 errados).
 
-Esto significa que el árbol favorece la clase que tiene mas cantidad de datos que en este caso es Rechazado.
+El modelo es muy bueno detectando Rechazados (5019 vs 121) por lo que
+casi siempre que dice “Rechazado”, acierta. En cambio, es débil para
+detectar Aprobados (503 correctos vs 1107 errados).
+
+Esto significa que el árbol favorece la clase que tiene mas cantidad de
+datos que en este caso es Rechazado.
 
 Accuracy:
 
@@ -233,9 +314,14 @@ Accuracy:
 accuracy <- Accuracy(pred, test_data$loan_status)
 accuracy
 ```
-El modelo acierta en alrededor del 91% de los casos del conjunto de test.
 
-Como vimos en la matriz de confusión, el rendimiento para identificar la clase Aprobado es mas bajo. Por lo que concluimos en que el valor del accuracy está condicionado. La mayoría de las observaciones son Rechazado, y el modelo tiende a predecir esa clase. 
+El modelo acierta en alrededor del 91% de los casos del conjunto de
+test.
+
+Como vimos en la matriz de confusión, el rendimiento para identificar la
+clase Aprobado es mas bajo. Por lo que concluimos en que el valor del
+accuracy está condicionado. La mayoría de las observaciones son
+Rechazado, y el modelo tiende a predecir esa clase.
 
 Precision y Recall:
 
@@ -246,11 +332,15 @@ recall_val <-Recall(test_data$loan_status,pred,positive = NULL)
 precision_val
 recall_val
 ```
-Precision es aproximadamente 0.91. Significa que de todos los casos que el modelo predijo como positivos, alrededor del 91% realmente lo eran.
 
-Recall es aproximadamente 0.97. Significa que de los que realmente son positivos, el modelo detecta el 97,6%. 
+Precision es aproximadamente 0.91. Significa que de todos los casos que
+el modelo predijo como positivos, alrededor del 91% realmente lo eran.
 
-El modelo tomó como positivos a los Rechazados. Es por esto que ambos valores son muy altos. 
+Recall es aproximadamente 0.97. Significa que de los que realmente son
+positivos, el modelo detecta el 97,6%.
+
+El modelo tomó como positivos a los Rechazados. Es por esto que ambos
+valores son muy altos.
 
 F1-score
 
@@ -258,7 +348,10 @@ F1-score
 f_1_score<- F1_Score(test_data$loan_status,pred,positive = NULL)
 f_1_score
 ```
-El F1-Score es la media armónica entre precision y recall. Esto indica que no solo predice la mayoría de los rechazados reales, sino que tambien mantiene bajo el número de falsos rechazados. 
+
+El F1-Score es la media armónica entre precision y recall. Esto indica
+que no solo predice la mayoría de los rechazados reales, sino que
+tambien mantiene bajo el número de falsos rechazados.
 
 AUC-ROC
 
@@ -268,14 +361,15 @@ probabilities <- predict(tree, newdata = test_data, type = "prob")
 auc_value <- MLmetrics::AUC(y_pred = probabilities[, "Aprobado"], y_true = as.numeric(test_data$loan_status == "Aprobado"))
 print(paste("AUC:", auc_value))
 ```
-Significa que el modelo diferencia bien entre “Aprobado” y “Rechazado”. Por lo que el rendimiento es bueno.
 
+Significa que el modelo diferencia bien entre “Aprobado” y “Rechazado”.
+Por lo que el rendimiento es bueno.
 
 ```{r}
 
 random_search <- function(train_data, valid_data, n) {
   # asegurar niveles (negativo, positivo)
-  lvl <- c("Aprobado", "Rechazado")
+  lvl <- c("Rechazado","Aprobado")
   train_data$loan_status <- factor(train_data$loan_status, levels = lvl)
   valid_data$loan_status   <- factor(valid_data$loan_status, levels = lvl)
   
@@ -288,7 +382,7 @@ random_search <- function(train_data, valid_data, n) {
     stringsAsFactors = FALSE
   )
   
-  set.seed(777) # replicabilidad
+  set.seed(1234)
   
   for (i in 1:n) {
     # hiperparámetros aleatorios
@@ -310,7 +404,7 @@ random_search <- function(train_data, valid_data, n) {
     
     # probas en validación (tomamos la columna "Aprobado" por NOMBRE)
     probability_pred <- predict(tree_model, newdata = valid_data, type = "prob")
-    prob_pos <- probability_pred[, "Rechazado"]
+    prob_pos <- probability_pred[, "Aprobado"]
     
     # AUC en validación (con levels explícitos)
     roc_curve <- roc(response = valid_data$loan_status, predictor = prob_pos,
@@ -335,10 +429,13 @@ rs <- random_search(train_data, valid_data, n = 1000)
 rs$best_model    # hiperparámetros y AUC de validación del mejor
 ```
 
-### Visualización de la relación entre hiperparámetros y AUC-ROC  
+### Visualización de la relación entre hiperparámetros y AUC-ROC
 
-Para evaluar cómo influyen los hiperparámetros en la calidad del modelo, generamos gráficos que muestran la relación de *maxdepth, **minsplit* y *minbucket* con el *AUC-ROC obtenido en validación*.  
-Estos permiten identificar patrones o tendencias que orientan la selección de configuraciones más adecuadas.
+Para evaluar cómo influyen los hiperparámetros en la calidad del modelo,
+generamos gráficos que muestran la relación de \*maxdepth,
+\*\*minsplit\* y *minbucket* con el *AUC-ROC obtenido en validación*.\
+Estos permiten identificar patrones o tendencias que orientan la
+selección de configuraciones más adecuadas.
 
 ```{r}
 library(tidyr)
@@ -357,7 +454,6 @@ ggplot(plot_data, aes(x = Valor, y = AUC_Validation)) +
   theme_minimal(base_size = 13)
 ```
 
-
 ```{r}
 best_tree <- rpart(
   loan_status ~ ., 
@@ -372,13 +468,13 @@ best_tree <- rpart(
   )
 )
 
-prob_best <- predict(best_tree, newdata = test_data, type = "prob")[, "Rechazado"]
+prob_best <- predict(best_tree, newdata = test_data, type = "prob")[, "Aprobado"]
 
 ```
 
 ```{r}
 
-lvl <- c("Aprobado", "Rechazado")
+lvl <- c("Rechazado","Aprobado")
 train_data$loan_status <- factor(train_data$loan_status, levels = lvl)
 valid_data$loan_status <- factor(valid_data$loan_status, levels = lvl)
 test_data$loan_status   <- factor(test_data$loan_status, levels = lvl)
@@ -398,7 +494,7 @@ best_tree <- rpart(
 )
 
 # predecir probabilidades en test
-probas_test <- predict(best_tree, newdata = test_data, type = "prob")[, "Rechazado"]
+probas_test <- predict(best_tree, newdata = test_data, type = "prob")[, "Aprobado"]
 
 # calcular curva ROC y AUC
 roc_test <- roc(response = test_data$loan_status,
@@ -411,22 +507,356 @@ auc_test
 
 ```
 
+Comparar el rendimiento en el conjunto de testeo del árbol básico (del
+punto 3) con el árbol optimizado. Presentar conclusiones.
 
-AGREGAR COMPARACION ENTRE ARBOL DEL EJ3
-
-##ejercicio 5
-rpart.plot(tree)
+##ejercicio 5 rpart.plot(tree)
 
 ```{r}
 rpart.plot(best_tree)
 ```
 
+Presentar y explicar el árbol optimizado final, indicando diferencias
+respecto al presentado en la sección 3. - Identificar y discutir las
+variables más importantes según el árbol de decisión optimizado
 
+##Ejercicio 6
 
 ```{r}
-best_tree$control$minsplit
-best_tree$control$minbucket
-best_tree$control$maxdepth
+corrupt_labels <- function(data, p, seed = 1234) {
+  set.seed(seed)
+  datos_corruptos <- data
+  
+  n <- nrow(data)
+  n_corrupt <- round(p * n)
+  indices_corrupt <- sample(1:n, n_corrupt, replace = FALSE)
+  
+  # invertir etiquetas
+  for (i in indices_corrupt) {
+    if (datos_corruptos$loan_status[i] == "Aprobado") {
+      datos_corruptos$loan_status[i] <- "Rechazado"
+    } else {
+      datos_corruptos$loan_status[i] <- "Aprobado"
+    }
+  }
+  return(datos_corruptos)
+}
+
+```
+
+Armamos los nuevos datos de train corruptos:
+
+```{r}
+corruptos1 <- corrupt_labels(data = train_data, p = 0.05)
+corruptos2 <- corrupt_labels(data = train_data, p = 0.10)
+corruptos3 <- corrupt_labels(data = train_data, p = 0.15)
+corruptos4 <- corrupt_labels(data = train_data, p = 0.20)
+corruptos5 <- corrupt_labels(data = train_data, p = 0.25)
+corruptos6 <- corrupt_labels(data = train_data, p = 0.30)
+```
+
+Buscamos el mejor arbol con los datos de validación:
+
+```{r}
+rs1 <- random_search(corruptos1, valid_data, n = 1000)  
+
+
+rs2 <- random_search(corruptos2, valid_data, n = 1000)  
+
+
+rs3 <- random_search(corruptos3, valid_data, n = 1000)  
+
+
+rs4 <- random_search(corruptos4, valid_data, n = 1000)  
+
+
+rs5 <- random_search(corruptos5, valid_data, n = 1000)  
+
+
+rs6 <- random_search(corruptos6, valid_data, n = 1000)  
+
+```
+
+Creamos una tabla para poder ver los valores y compararlos
+
+```{r}
+
+rs_map <- list(
+  "5%"  = rs1,
+  "10%" = rs2,
+  "15%" = rs3,
+  "20%" = rs4,
+  "25%" = rs5,
+  "30%" = rs6
+)
+
+tab <- do.call(rbind, lapply(names(rs_map), function(pct){
+  bm <- rs_map[[pct]]$best_model
+  data.frame(
+    id             = pct,
+    maxdepth       = bm$maxdepth,
+    minsplit       = bm$minsplit,
+    minbucket      = bm$minbucket,
+    AUC_Validation = round(bm$AUC_Validation, 4),
+    row.names = NULL
+  )
+}))
+
+knitr::kable(tab, align = "c", caption = "Random search por % de etiquetas corruptas")
+
+
+```
+
+corruptos 5%:
+
+```{r}
+
+lvl <- c("Rechazado", "Aprobado")
+corruptos1$loan_status <- factor(corruptos1$loan_status, levels = lvl)
+valid_data$loan_status <- factor(valid_data$loan_status, levels = lvl)
+test_data$loan_status   <- factor(test_data$loan_status, levels = lvl)
+
+# entrenar con los hiperparámetros encontrados
+best_tree_rs1 <- rpart(
+  loan_status ~ ., 
+  data = rbind(corruptos1,valid_data), 
+  method = "class",
+  control = rpart.control(
+    minsplit  = rs1$best_model$minsplit,
+    minbucket = rs1$best_model$minbucket,
+    maxdepth  = rs1$best_model$maxdepth,
+    cp = 0,
+    xval = 0
+  )
+)
+
+# predecir probabilidades en test
+probas_test_rs1 <- predict(best_tree_rs1, newdata = test_data, type = "prob")[, "Aprobado"]
+
+# calcular curva ROC y AUC
+roc_test <- roc(response = test_data$loan_status,
+                predictor = probas_test_rs1,
+                levels = lvl,
+                quiet = TRUE)
+
+auc_test_rs1 <- auc(roc_test)
+auc_test_rs1
+
+```
+
+corruptos 10%:
+
+```{r}
+
+lvl <- c("Rechazado", "Aprobado")
+corruptos2$loan_status <- factor(corruptos2$loan_status, levels = lvl)
+valid_data$loan_status <- factor(valid_data$loan_status, levels = lvl)
+test_data$loan_status   <- factor(test_data$loan_status, levels = lvl)
+
+# entrenar con los hiperparámetros encontrados
+best_tree_rs2 <- rpart(
+  loan_status ~ ., 
+  data = rbind(corruptos2,valid_data), 
+  method = "class",
+  control = rpart.control(
+    minsplit  = rs2$best_model$minsplit,
+    minbucket = rs2$best_model$minbucket,
+    maxdepth  = rs2$best_model$maxdepth,
+    cp = 0,
+    xval = 0
+  )
+)
+
+# predecir probabilidades en test
+probas_test_rs2 <- predict(best_tree_rs2, newdata = test_data, type = "prob")[, "Aprobado"]
+
+# calcular curva ROC y AUC
+roc_test <- roc(response = test_data$loan_status,
+                predictor = probas_test_rs2,
+                levels = lvl,
+                quiet = TRUE)
+
+auc_test_rs2 <- auc(roc_test)
+auc_test_rs2
+
 ```
 
 
+corruptos 15%:
+
+```{r}
+
+lvl <- c("Rechazado", "Aprobado")
+corruptos3$loan_status <- factor(corruptos3$loan_status, levels = lvl)
+valid_data$loan_status <- factor(valid_data$loan_status, levels = lvl)
+test_data$loan_status   <- factor(test_data$loan_status, levels = lvl)
+
+# entrenar con los hiperparámetros encontrados
+best_tree_rs3 <- rpart(
+  loan_status ~ ., 
+  data = rbind(corruptos3,valid_data), 
+  method = "class",
+  control = rpart.control(
+    minsplit  = rs3$best_model$minsplit,
+    minbucket = rs3$best_model$minbucket,
+    maxdepth  = rs3$best_model$maxdepth,
+    cp = 0,
+    xval = 0
+  )
+)
+
+# predecir probabilidades en test
+probas_test_rs3 <- predict(best_tree_rs3, newdata = test_data, type = "prob")[, "Aprobado"]
+
+# calcular curva ROC y AUC
+roc_test <- roc(response = test_data$loan_status,
+                predictor = probas_test_rs3,
+                levels = lvl,
+                quiet = TRUE)
+
+auc_test_rs3 <- auc(roc_test)
+auc_test_rs3
+
+```
+
+corruptos 20%:
+
+```{r}
+
+lvl <- c("Rechazado", "Aprobado")
+corruptos4$loan_status <- factor(corruptos4$loan_status, levels = lvl)
+valid_data$loan_status <- factor(valid_data$loan_status, levels = lvl)
+test_data$loan_status   <- factor(test_data$loan_status, levels = lvl)
+
+# entrenar con los hiperparámetros encontrados
+best_tree_rs4 <- rpart(
+  loan_status ~ ., 
+  data = rbind(corruptos4,valid_data), 
+  method = "class",
+  control = rpart.control(
+    minsplit  = rs4$best_model$minsplit,
+    minbucket = rs4$best_model$minbucket,
+    maxdepth  = rs4$best_model$maxdepth,
+    cp = 0,
+    xval = 0
+  )
+)
+
+# predecir probabilidades en test
+probas_test_rs4 <- predict(best_tree_rs4, newdata = test_data, type = "prob")[, "Aprobado"]
+
+# calcular curva ROC y AUC
+roc_test <- roc(response = test_data$loan_status,
+                predictor = probas_test_rs4,
+                levels = lvl,
+                quiet = TRUE)
+
+auc_test_rs4 <- auc(roc_test)
+auc_test_rs4
+
+```
+
+corruptos 25%:
+
+```{r}
+
+lvl <- c("Rechazado", "Aprobado")
+corruptos5$loan_status <- factor(corruptos5$loan_status, levels = lvl)
+valid_data$loan_status <- factor(valid_data$loan_status, levels = lvl)
+test_data$loan_status   <- factor(test_data$loan_status, levels = lvl)
+
+# entrenar con los hiperparámetros encontrados
+best_tree_rs5 <- rpart(
+  loan_status ~ ., 
+  data = rbind(corruptos5,valid_data), 
+  method = "class",
+  control = rpart.control(
+    minsplit  = rs5$best_model$minsplit,
+    minbucket = rs5$best_model$minbucket,
+    maxdepth  = rs5$best_model$maxdepth,
+    cp = 0,
+    xval = 0
+  )
+)
+
+# predecir probabilidades en test
+probas_test_rs5 <- predict(best_tree_rs5, newdata = test_data, type = "prob")[, "Aprobado"]
+
+# calcular curva ROC y AUC
+roc_test <- roc(response = test_data$loan_status,
+                predictor = probas_test_rs5,
+                levels = lvl,
+                quiet = TRUE)
+
+auc_test_rs5 <- auc(roc_test)
+auc_test_rs5
+
+```
+
+
+corruptos 30%:
+
+```{r}
+
+lvl <- c("Rechazado", "Aprobado")
+corruptos6$loan_status <- factor(corruptos6$loan_status, levels = lvl)
+valid_data$loan_status <- factor(valid_data$loan_status, levels = lvl)
+test_data$loan_status   <- factor(test_data$loan_status, levels = lvl)
+
+# entrenar con los hiperparámetros encontrados
+best_tree_rs6 <- rpart(
+  loan_status ~ ., 
+  data = rbind(corruptos6,valid_data), 
+  method = "class",
+  control = rpart.control(
+    minsplit  = rs6$best_model$minsplit,
+    minbucket = rs6$best_model$minbucket,
+    maxdepth  = rs6$best_model$maxdepth,
+    cp = 0,
+    xval = 0
+  )
+)
+
+# predecir probabilidades en test
+probas_test_rs6 <- predict(best_tree_rs6, newdata = test_data, type = "prob")[, "Aprobado"]
+
+# calcular curva ROC y AUC
+roc_test <- roc(response = test_data$loan_status,
+                predictor = probas_test_rs6,
+                levels = lvl,
+                quiet = TRUE)
+
+auc_test_rs6 <- auc(roc_test)
+auc_test_rs6
+
+```
+
+resultados resumidos:
+```{r}
+# Crear tabla resumen
+auc_results <- data.frame(
+  Corrupcion = c("5%", "10%", "15%", "20%", "25%", "30%"),
+  AUC_Test = c(auc_test_rs1,
+               auc_test_rs2,
+               auc_test_rs3,
+               auc_test_rs4,
+               auc_test_rs5,
+               auc_test_rs6)
+)
+
+print(auc_results)
+```
+
+Comparen el rendimiento en testeo del mejor árbol obtenido con la
+performance obtenida por el árbol optimizado del punto 5. - Analicen y
+discutan lo siguiente: - Cómo cambia el rendimiento del modelo a medida
+que aumenta el porcentaje de etiquetas corruptas. En particular,
+analizar y discutir si la degradación de la performance es lineal,
+acelerada o si presenta umbrales críticos. - Cómo cambia el valor de los
+diferentes hiperparámetros óptimos a medida que aumenta el porcentaje de
+etiquetas corruptas. Para estos análisis deberán presentar gráficos
+sobre los que se apoye su discusión.
+
+##Ejercicio 7
+
+falta entero
